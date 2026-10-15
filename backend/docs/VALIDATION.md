@@ -68,3 +68,17 @@ proposal schema and output budget; missing key, rejected endpoint, 401/429/500 e
 empty Ollama responses with preserved metadata; hosted labels and secret exclusion in health/capsule.
 Live Token Factory credentials/model/schema support, Windows launcher execution, and a full AI repair
 remain unverified here. No hosted repair success is claimed from mocked transport tests.
+
+### Integrated frontend/backend branch
+
+Validated Next.js 14.2.35 production compilation and TypeScript, 34 backend unit/API tests, lint,
+and the opt-in real LinkWatch integration test. Also exercised the production Next.js same-origin API
+proxy against a real FastAPI/JobService instance: health, invalid input (422), job creation (202), polling,
+report/history routes, nested log artifacts, patch and capsule ZIP downloads. Both baseline routes had
+9 passing/1 failing test; both candidate routes had 10 passing tests and verified contracts.
+This run used the explicitly labelled FixtureAdvisor and trusted-local environments, not live AI or Docker.
+Checked skipped-test accounting, failure/probe card classification and elapsed-time formatting separately.
+Browser automation was not completed because the browser binary download failed in this environment.
+Live Nemotron credentials/model/schema support and full Hermes/Windows/Docker execution remain local checks.
+The CI workflow now includes frontend TypeScript and production builds as well as backend tests and Windows
+launcher parsing; adding CI does not claim that a remote workflow has completed.
