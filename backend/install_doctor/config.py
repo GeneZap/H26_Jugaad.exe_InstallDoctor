@@ -27,7 +27,7 @@ class Settings:
     max_patch_bytes: int = 100_000
     max_workers: int = 1
     cors_origins: list[str] = field(default_factory=lambda: os.getenv(
-        "INSTALLDOCTOR_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
+        "INSTALLDOCTOR_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
     ).split(","))
 
     def __post_init__(self):
