@@ -17,7 +17,7 @@ class Settings:
     hermes_bin: str = field(default_factory=lambda: os.getenv("INSTALLDOCTOR_HERMES_BIN", "hermes"))
     hermes_provider: str = "custom"
     command_timeout: int = 240
-    model_timeout: int = 180
+    model_timeout: int = field(default_factory=lambda: int(os.getenv("INSTALLDOCTOR_MODEL_TIMEOUT", "180")))
     max_repo_bytes: int = 20_000_000
     max_patch_bytes: int = 100_000
     max_workers: int = 1
@@ -26,6 +26,8 @@ class Settings:
     ).split(","))
 
     def __post_init__(self):
+        if self.model_timeout <= 0:
+            raise ValueError("INSTALLDOCTOR_MODEL_TIMEOUT must be positive")
         if self.runner not in {"docker", "trusted-local"}:
             raise ValueError("INSTALLDOCTOR_RUNNER must be docker or trusted-local")
         if self.provider not in {"hermes", "ollama", "none"}:

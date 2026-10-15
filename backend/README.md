@@ -6,28 +6,54 @@ Hermes is the default AI adapter. Direct Ollama is a development alternative.
 
 ## Windows setup
 
-Keep the backend environment separate from LinkWatch's older dependencies.
+Keep the backend environment separate from LinkWatch's older dependencies. The API supports
+Python 3.12 or 3.13; the repository-under-test worker stays on Python 3.12 in Docker.
+
+From the **repository root**:
 
 ```powershell
-cd backend
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-docker info
-docker pull python:3.12-slim
-ollama list
+powershell -ExecutionPolicy Bypass -File .\backend\start.ps1
+```
 
-$env:INSTALLDOCTOR_MODEL = "YOUR_INSTALLED_MODEL_TAG"
-$env:INSTALLDOCTOR_AI_PROVIDER = "hermes"
-$env:INSTALLDOCTOR_RUNNER = "docker"
-$env:INSTALLDOCTOR_MODEL_SOURCE = "YOUR_MODEL_SOURCE_AND_VERSION"
-$env:INSTALLDOCTOR_MODEL_LICENSE = "YOUR_MODEL_LICENSE"
+If your prompt already ends in **\backend**, run this instead (do not run `cd backend` again):
 
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+The launcher selects installed Python 3.12/3.13, creates `.venv`, installs the backend,
+checks Git/Docker, attempts to start Docker Desktop, ensures the worker image exists, and checks
+Hermes and the installed Ollama model. A failed prerequisite stops setup. If neither Python is
+installed but `uv` is available, it installs Python 3.12 through uv. Otherwise install Python 3.12
+or pass `-Python "C:\path\to\python.exe"`. Use `py -0p` to see registered Python installations.
+An unusable existing `.venv` is reported rather than deleted.
+
+Default configuration matches the team's installed model:
+
+- Model: `gemma4:26b-a4b-it-q4_K_M`, local Ollama, Hermes adapter.
+- Source/version: https://ollama.com/library/gemma4:26b-a4b-it-q4_K_M ; license: Apache-2.0.
+- Docker worker: `python:3.12-slim`; model timeout: 600 seconds (not an inference-speed guarantee).
+
+For a different model, supply `-Model`, `-ModelSource` and `-ModelLicense`.
+Use `-ModelTimeout 900` to allow longer local inference, or `-SetupOnly` to check prerequisites without
+starting the server. `-Provider ollama` bypasses Hermes for development; `-Provider none` supports
+analysis only and does not make an AI-repair claim. These options do not enable hosted inference.
+
+If Docker still fails, open Docker Desktop, use Linux containers, and wait for **Engine running**.
+`docker info` must show a working Server section. A listed Docker CLI alone is insufficient.
+Ollama model installation is separate from Hermes installation; see the Hermes section below.
+
+The underlying server command, after prerequisites and environment settings are ready, is:
+
+```powershell
 .\.venv\Scripts\python.exe -m uvicorn install_doctor.api:app --host 127.0.0.1 --port 8000
 ```
 
-Start Docker Desktop first. Open http://127.0.0.1:8000/docs, check /api/health, then submit /api/jobs.
+Open http://127.0.0.1:8000/docs, check /api/health, then submit /api/jobs.
 Do not use --reload during execution: restarts interrupt jobs. This is a local, unauthenticated demo
-service; do not expose it publicly. Environment settings are read at startup.
+service; do not expose it publicly. Environment settings are read at startup. The launcher sets them
+for its own process and child server; running it in a separate PowerShell process does not configure
+the parent terminal.
 
 Linux/macOS: create a Python 3.12 environment, install `-e '.[dev]'`, export the settings above,
 and run `python -m uvicorn install_doctor.api:app --host 127.0.0.1 --port 8000`.

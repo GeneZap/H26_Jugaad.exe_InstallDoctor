@@ -130,6 +130,14 @@ def test_hosted_ollama_endpoint_rejected(tmp_path):
         Settings(data_dir=tmp_path, ollama_url="https://inference.example.com")
 
 
+def test_model_timeout_from_environment(monkeypatch):
+    monkeypatch.setenv("INSTALLDOCTOR_MODEL_TIMEOUT", "600")
+    assert Settings().model_timeout == 600
+    monkeypatch.setenv("INSTALLDOCTOR_MODEL_TIMEOUT", "0")
+    with pytest.raises(ValueError, match="must be positive"):
+        Settings()
+
+
 def test_ollama_adapter_requests_schema_and_preserves_response(tmp_path, monkeypatch):
     import httpx
 

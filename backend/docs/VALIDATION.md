@@ -1,10 +1,11 @@
 # Validation record
 
-Date: 15 October 2026. Runtime: Linux, Python 3.12.14.
+Date: 15 October 2026. Runtimes: Linux, Python 3.12.14 and 3.13.16 (API/controller).
 
 ## Backend checks
 
-- 24 unit/API tests passed; the network integration test is opt-in and skipped in the default suite.
+- 25 unit/API tests passed on each of Python 3.12 and 3.13; the network integration test is opt-in
+  and skipped in the default suite. The target-repository worker still requires Python 3.12.
 - Ruff static checks passed.
 - Agent Skills frontmatter/naming validation passed.
 - A separate skill forward test invoked the installed CLI with analyze-only on the real LinkWatch target.
@@ -51,7 +52,8 @@ Hermes or an arbitrary model will autonomously generate a correct repair.
 - Live Hermes CLI, Ollama inference and model-generated repair: no Hermes/model service is installed here.
 - Docker execution: Docker is unavailable in this environment. Container command construction is implemented,
   but the image and mount behaviour must be checked on the team's Docker Desktop installation.
-- Windows execution: setup instructions are supplied, but native Windows was not available for testing.
+- Windows execution: start.ps1 was reviewed but native Windows/PowerShell was not available for execution.
+  It checks prerequisites and stops on failures; run it on the team's Windows computer before judging.
 - Behaviour outside the executed tests and inferred contracts; other repositories or Python versions.
 
 Before judging: configure the real local model, exact model source/version/license, verify Hermes CLI flags,
