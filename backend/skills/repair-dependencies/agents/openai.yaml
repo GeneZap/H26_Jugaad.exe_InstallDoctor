@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repair Python Dependencies"
+  short_description: "Verify dependency repairs and export execution evidence."
+  default_prompt: "Use InstallDoctor to investigate Python dependency failures and verify a proposed repair."
