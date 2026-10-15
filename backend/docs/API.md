@@ -52,3 +52,10 @@ Suggested UI: repository input, stage timeline, findings list, baseline/candidat
 AI rationale, diff viewer, limitation panel and capsule download.
 The clone is on the backend computer. With the backend on your laptop it uses your local Docker engine.
 Do not expose this unauthenticated prototype publicly. Cloud hosting requires organizer clarification.
+
+
+Health additionally reports `inference_location` (`local` or `hosted`) and, for Nebius,
+`api_key_configured` (boolean, never the key). This is a configuration check, not a credential test.
+An explicitly selected `nebius` provider uses hosted Token Factory inference; the runner remains local.
+`ai-metadata.json` is exported for direct Ollama/Nebius responses, including finish reason and usage.
+Empty final content or token-limit truncation blocks the job before patching.

@@ -9,13 +9,16 @@ from .models import Job
 def export(job: Job, evidence: Path, inspection: dict, settings):
     capsule = {"schema_version": "1.0", "job": job.model_dump(),
                "ai": {"provider": settings.provider, "model": settings.model,
-                      "access_method": "local Hermes CLI with loopback inference" if settings.provider == "hermes" else settings.provider,
+                      "access_method": ("local Hermes CLI with loopback inference" if settings.provider == "hermes"
+                                        else "hosted Nebius Token Factory API" if settings.provider == "nebius" else settings.provider),
                       "model_source": settings.model_source,
                       "model_license": settings.model_license},
                "inspection": inspection,
                "evidence_policy": {"observed": "Repository inspection", "ai_proposed": "Unverified model recommendation",
                                    "execution_verified": "Recorded command outcomes only"},
                "limitations": inspection.get("limitations", []) + [
+                   *(["Hosted inference selected explicitly: repository context and baseline log excerpts were sent to Nebius; Hermes was not used."]
+                     if settings.provider == "nebius" else []),
                    "No vulnerability scoring is performed.",
                    "Only Python 3.12, root requirements.txt/pyproject.toml and pytest are supported in this prototype.",
                    "Docker limits processes/resources but is not a hardened hostile-code multi-tenant service.",

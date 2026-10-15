@@ -1,6 +1,6 @@
 param(
-    [string]$Model = "gemma4:26b-a4b-it-q4_K_M",
-    [ValidateSet("hermes", "ollama", "none")]
+    [string]$Model = "",
+    [ValidateSet("hermes", "ollama", "nebius", "none")]
     [string]$Provider = "hermes",
     [string]$Python = "",
     [string]$ModelSource = "",
@@ -89,7 +89,18 @@ try {
 } catch { $imageReady = $false }
 if (-not $imageReady) { Invoke-Checked -Executable "docker" -Arguments @("pull", $image) }
 
-if ($Provider -ne "none") {
+if (-not $Model) {
+    if ($Provider -eq "nebius") {
+        $Model = if ($env:NEBIUS_MODEL) { $env:NEBIUS_MODEL } else { "nvidia/Nemotron-3_5-Lightning" }
+    } else { $Model = "gemma4:26b-a4b-it-q4_K_M" }
+}
+
+if ($Provider -eq "nebius") {
+    if (-not $env:NEBIUS_API_KEY) { throw "Set NEBIUS_API_KEY in this shell before starting Nebius mode. Do not commit it." }
+    Write-Host "Hosted Nebius inference selected: repository context and baseline logs will be sent to Token Factory."
+    if (-not $ModelSource) { $ModelSource = "https://tokenfactory.nebius.com/ (model: $Model)" }
+    if (-not $ModelLicense) { $ModelLicense = "Not supplied; verify applicable model license and hosted-service terms" }
+} elseif ($Provider -ne "none") {
     if ($Provider -eq "hermes") {
         $hermesCommand = if ($env:INSTALLDOCTOR_HERMES_BIN) { $env:INSTALLDOCTOR_HERMES_BIN } else { "hermes" }
         if (-not (Get-Command $hermesCommand -ErrorAction SilentlyContinue)) {

@@ -37,7 +37,7 @@ Default configuration matches the team's installed model:
 For a different model, supply `-Model`, `-ModelSource` and `-ModelLicense`.
 Use `-ModelTimeout 900` to allow longer local inference, or `-SetupOnly` to check prerequisites without
 starting the server. `-Provider ollama` bypasses Hermes for development; `-Provider none` supports
-analysis only and does not make an AI-repair claim. These options do not enable hosted inference.
+analysis only and does not make an AI-repair claim. Hosted inference is a separate explicit `-Provider nebius` development mode; see below.
 
 If Docker still fails, open Docker Desktop, use Linux containers, and wait for **Engine running**.
 `docker info` must show a working Server section. A listed Docker CLI alone is insufficient.
@@ -126,3 +126,48 @@ obtain clarification before using hosted/paid services, including credit-funded 
 References: https://agentskills.io/specification ; https://hermes-agent.nousresearch.com/docs/ ;
 https://docs.ollama.com/api/chat ; https://pydantic.dev/docs/validation/latest/get-started/migration/ ;
 https://jinja.palletsprojects.com/en/stable/changes/ .
+
+
+## Nebius Token Factory / Nemotron development mode
+
+This adapter follows Jiraya's `app/providers/nebius.py` and `app/config.py`:
+https://github.com/TheNityant/JIRAYA_PERSONAL_ASSISTANT/blob/main/app/providers/nebius.py
+
+- Provider: `nebius`; endpoint: `https://api.tokenfactory.nebius.com/v1/`.
+- Default model from Jiraya: `nvidia/Nemotron-3_5-Lightning` (not an inferred Lite alias).
+- Authentication: `NEBIUS_API_KEY`, read from the shell; never commit it.
+- OpenAI-compatible chat completions using existing httpx, with temperature 0,
+  `chat_template_kwargs.enable_thinking=false`, a proposal JSON schema, and 8192 output tokens.
+- Explicit hosted selection only: no automatic local-to-cloud fallback. This path bypasses Hermes.
+- Repository context and baseline log excerpts are sent to Nebius. Repository installation and
+  candidate tests still run in local Docker. Health and evidence label hosted inference.
+- Confirm hosted services are permitted for your event before using this mode for submission.
+
+Stop the running backend first. From the repository root in PowerShell:
+
+```powershell
+$nebiusCredential = Read-Host "Token Factory API key" -AsSecureString
+$env:NEBIUS_API_KEY = [System.Net.NetworkCredential]::new("", $nebiusCredential).Password
+$env:NEBIUS_MODEL = "nvidia/Nemotron-3_5-Lightning"
+powershell -ExecutionPolicy Bypass -File .\backend\start.ps1 -Provider nebius
+```
+
+The secret prompt avoids putting the key into command history. The launcher skips Ollama/Hermes
+prerequisite checks in this mode. It still checks Python, Git and Docker. `.env.example` is documentation,
+not an automatically loaded configuration file. A different model can be selected with `-Model`.
+If needed, supply verified `-ModelSource` and `-ModelLicense`; unspecified license terms are labelled
+unverified rather than guessed. Do not paste the API key into Swagger or job request bodies.
+
+Check `/api/health`: `ai_provider=nebius`, `inference_location=hosted`,
+`api_key_configured=true`. This checks configuration, not live credentials. Submit the usual repair job.
+HTTP 401/429 failures, unsupported structured output, empty content and output truncation are reported
+as blockers. Model availability and schema support for this account require a live authenticated run.
+
+`ai-response.txt` stores final content. `ai-metadata.json` records finish reason and usage (Ollama also
+records durations and thinking character count). No thinking trace or request authentication headers
+are exported. A length-limited response is blocked before patching.
+
+Direct Ollama now defaults to `think=false` following the observed Gemma empty-answer failure.
+Set `INSTALLDOCTOR_OLLAMA_THINK=true` only for models where you want thinking enabled.
+`INSTALLDOCTOR_MAX_OUTPUT_TOKENS` controls the output budget for Ollama and Nebius (default 8192).
+These controls do not change the Hermes CLI adapter.

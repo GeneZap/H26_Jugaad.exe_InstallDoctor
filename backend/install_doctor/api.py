@@ -38,6 +38,8 @@ def create_app(settings: Settings | None = None, service: JobService | None = No
                 "ai_provider": settings.provider, "model": settings.model,
                 "hermes_installed": bool(shutil.which(settings.hermes_bin)),
                 "model_configured": bool(settings.model), "local_service": True,
+                "inference_location": "hosted" if settings.provider == "nebius" else "local",
+                "api_key_configured": bool(settings.nebius_api_key) if settings.provider == "nebius" else None,
                 "runner_warning": "Not a security sandbox" if settings.runner == "trusted-local" else None}
 
     @app.post("/api/jobs", response_model=Job, status_code=202)

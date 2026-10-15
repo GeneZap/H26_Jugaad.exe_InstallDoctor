@@ -174,3 +174,96 @@ def test_hermes_adapter_uses_explicit_local_provider_and_query_file(tmp_path, mo
     monkeypatch.setattr(module, "execute", fake_execute)
     advisor = module.Advisor(Settings(data_dir=tmp_path, provider="hermes", model="test-model"))
     assert advisor.propose({"files": {}}, [], tmp_path, threading.Event()).summary == "repair"
+
+
+def test_nebius_adapter_uses_jiraya_model_and_structured_output(tmp_path, monkeypatch):
+    import httpx
+
+    import install_doctor.ai as module
+    body = proposal("app.py", "x=1", "x=2").model_dump_json()
+    real_client = httpx.Client
+
+    def handle(request):
+        assert str(request.url) == "https://api.tokenfactory.nebius.com/v1/chat/completions"
+        assert request.headers["Authorization"] == "Bearer test-secret"
+        payload = json.loads(request.content)
+        assert payload["model"] == "nvidia/Nemotron-3_5-Lightning"
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert payload["response_format"]["json_schema"]["schema"]["type"] == "object"
+        assert payload["max_tokens"] == 8192
+        return httpx.Response(200, json={"choices": [{"message": {"content": body}, "finish_reason": "stop"}],
+                                        "usage": {"completion_tokens": 200}})
+
+    monkeypatch.setattr(module.httpx, "Client", lambda **kwargs: real_client(transport=httpx.MockTransport(handle)))
+    settings = Settings(data_dir=tmp_path, provider="nebius", nebius_api_key="test-secret")
+    assert "test-secret" not in repr(settings)
+    assert module.Advisor(settings).propose({"files": {}}, [], tmp_path, threading.Event()).summary == "repair"
+    metadata = json.loads((tmp_path / "ai-metadata.json").read_text())
+    assert metadata["finish_reason"] == "stop"
+    assert "test-secret" not in "".join(p.read_text() for p in tmp_path.glob("*.json"))
+
+
+@pytest.mark.parametrize("status", [401, 429, 500])
+def test_nebius_http_failure_does_not_leak_credentials(tmp_path, monkeypatch, status):
+    import httpx
+
+    import install_doctor.ai as module
+    real_client = httpx.Client
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, text="echo test-secret"))
+    monkeypatch.setattr(module.httpx, "Client", lambda **kwargs: real_client(transport=transport))
+    settings = Settings(data_dir=tmp_path, provider="nebius", nebius_api_key="test-secret")
+    with pytest.raises(RuntimeError, match=f"Nebius HTTP {status}") as error:
+        module.Advisor(settings).propose({}, [], tmp_path, threading.Event())
+    assert "test-secret" not in str(error.value)
+    assert "test-secret" not in (tmp_path / "ai-metadata.json").read_text()
+
+
+@pytest.mark.parametrize("content,reason", [("", "stop"), ("", "length"), ('{"summary":', "length")])
+def test_ollama_empty_or_truncated_response_preserves_diagnostics(tmp_path, monkeypatch, content, reason):
+    import httpx
+
+    import install_doctor.ai as module
+    real_client = httpx.Client
+
+    def handle(request):
+        payload = json.loads(request.content)
+        assert payload["think"] is False
+        assert payload["options"]["num_predict"] == 8192
+        return httpx.Response(200, json={"message": {"content": content, "thinking": "reasoning"},
+                                        "done_reason": reason, "eval_count": 128})
+
+    monkeypatch.setattr(module.httpx, "Client", lambda **kwargs: real_client(transport=httpx.MockTransport(handle)))
+    settings = Settings(data_dir=tmp_path, provider="ollama", model="test")
+    with pytest.raises(RuntimeError, match="output token limit" if reason == "length" else "empty final"):
+        module.Advisor(settings).propose({}, [], tmp_path, threading.Event())
+    metadata = json.loads((tmp_path / "ai-metadata.json").read_text())
+    assert metadata["eval_count"] == 128
+    assert metadata["thinking_characters"] == 9
+
+
+def test_nebius_rejects_missing_key_and_untrusted_endpoint(tmp_path):
+    from install_doctor.ai import Advisor
+    settings = Settings(data_dir=tmp_path, provider="nebius", nebius_api_key="")
+    with pytest.raises(RuntimeError, match="NEBIUS_API_KEY"):
+        Advisor(settings).propose({}, [], tmp_path, threading.Event())
+    with pytest.raises(ValueError, match="NEBIUS_BASE_URL"):
+        Settings(provider="nebius", nebius_base_url="https://example.com/v1/")
+
+
+def test_nebius_health_and_capsule_label_hosted_without_key(tmp_path):
+    from install_doctor.reporting import export
+    settings = Settings(data_dir=tmp_path, provider="nebius", nebius_api_key="test-secret")
+    service = JobService(settings)
+    with TestClient(create_app(settings, service)) as client:
+        health = client.get("/api/health").json()
+        assert health["inference_location"] == "hosted"
+        assert health["api_key_configured"] is True
+        assert "test-secret" not in json.dumps(health)
+        job = service.create(JobRequest(repository_url="https://github.com/example/repo"), start=False)
+        evidence = tmp_path / "evidence"
+        evidence.mkdir()
+        export(job, evidence, {}, settings)
+        capsule = (evidence / "capsule.json").read_text()
+        assert "hosted Nebius Token Factory API" in capsule
+        assert "Hermes was not used" in capsule
+        assert "test-secret" not in capsule

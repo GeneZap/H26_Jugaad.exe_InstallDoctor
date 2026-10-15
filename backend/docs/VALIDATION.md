@@ -59,3 +59,12 @@ Hermes or an arbitrary model will autonomously generate a correct repair.
 Before judging: configure the real local model, exact model source/version/license, verify Hermes CLI flags,
 start Docker Desktop, run /api/health, and demonstrate a real repair job. Keep the fixture-based integration
 test labelled accurately; do not show it as an autonomous AI repair.
+
+
+### Nebius development adapter and Ollama empty-output regression
+
+Added mocked HTTP tests for the Jiraya model ID, endpoint, bearer authentication, thinking control,
+proposal schema and output budget; missing key, rejected endpoint, 401/429/500 errors; truncated and
+empty Ollama responses with preserved metadata; hosted labels and secret exclusion in health/capsule.
+Live Token Factory credentials/model/schema support, Windows launcher execution, and a full AI repair
+remain unverified here. No hosted repair success is claimed from mocked transport tests.
